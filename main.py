@@ -50,6 +50,7 @@ engine = sqlalchemy.create_engine(
 )
 metadata.create_all(engine)
 
+
 class Reservation(BaseModel):
     timestamp: datetime
     user: str
@@ -58,12 +59,14 @@ class Reservation(BaseModel):
     reserve_end: datetime
     reserve_id: int
 
+
 class ReservationIn(BaseModel):
     timestamp: datetime
     user: str
     stnname: str
     reserve_start: datetime
     reserve_end: datetime
+
 
 class Station(BaseModel):
     uiccode: int
@@ -72,6 +75,7 @@ class Station(BaseModel):
     lon: float
     bike_capacity: int
     stnname: str
+
 
 app = FastAPI(title="REST API using FastAPI PostgreSQL Async EndPoints")
 app.add_middleware(
@@ -82,37 +86,44 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+
 @app.on_event("startup")
 async def startup():
     await database.connect()
+
 
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
 
+
 @app.post("/reservation/", response_model=Reservation)
 async def create_note(note: ReservationIn):
     query = reservations.insert().values(text=note.text,
-    completed=note.completed)
+                                         completed=note.completed)
     last_record_id = await database.execute(query)
     return {**note.dict(), "id": last_record_id}
+
 
 @app.put("/reservation/{note_id}/", response_model=Reservation)
 async def update_note(note_id: int, payload: ReservationIn):
     query = reservations.update().where(reservations.c.id == note_id).values(text=payload.text,
-    completed=payload.completed)
+                                                                             completed=payload.completed)
     await database.execute(query)
     return {**payload.dict(), "id": note_id}
+
 
 @app.get("/reservation/", response_model=List[Reservation])
 async def read_notes(skip: int = 0, take: int = 20):
     query = reservations.select().offset(skip).limit(take)
     return await database.fetch_all(query)
 
+
 @app.get("/reservation/{note_id}/", response_model=Reservation)
 async def read_notes(note_id: int):
     query = reservations.select().where(reservations.c.id == note_id)
     return await database.fetch_one(query)
+
 
 @app.delete("/reservation/{note_id}/")
 async def update_note(note_id: int):
