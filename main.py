@@ -146,3 +146,9 @@ async def update_reservation(reservation_id: int):
     query = reservations.delete().where(reservations.c.reserve_id == reservation_id)
     await database.execute(query)
     return {"message": "Reservation with id: {} deleted successfully!".format(reservation_id)}
+
+
+@app.get("/user/{user}/", response_model=List[Reservation])
+async def read_user_reservations(user: str, skip: int = 0, take: int = 20):
+    query = reservations.select().where(reservations.c.user == user).offset(skip).limit(take)
+    return await database.fetch_all(query)
