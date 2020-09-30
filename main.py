@@ -152,3 +152,9 @@ async def update_reservation(reservation_id: int):
 async def read_user_reservations(user: str, skip: int = 0, take: int = 20):
     query = reservations.select().where(reservations.c.user == user).offset(skip).limit(take)
     return await database.fetch_all(query)
+
+
+@app.get("/station/", response_model=List[Station])
+async def read_stations(skip: int = 0, take: int = 20):
+    query = stations.select().offset(skip).limit(take)
+    return await database.fetch_all(query)
