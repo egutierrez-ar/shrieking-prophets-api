@@ -86,6 +86,14 @@ class Journey(BaseModel):
     plannedTrack: Any
 
 
+class OccupiedSpots(BaseModel):
+    uiccode: int
+    timestamp: datetime
+    time_start: datetime
+    time_end: datetime
+    occupied_spots: int
+
+
 app = FastAPI(title="REST API using FastAPI PostgreSQL Async EndPoints")
 app.add_middleware(
     CORSMiddleware,
@@ -167,6 +175,32 @@ async def read_user_reservations(user: str, skip: int = 0, take: int = 20):
 async def read_stations(skip: int = 0, take: int = 20):
     query = stations.select().offset(skip).limit(take)
     return await database.fetch_all(query)
+
+
+@app.get("/station/occupied/", response_model=OccupiedSpots)
+async def read_stations(uiccode: int = 8400621, time_start: datetime = datetime(2020, 10, 1, 1, 32),
+                        time_end: datetime = datetime(2020, 10, 2, 12, 32)):
+
+    # TODO: Implement `count` function using SqlAlchemy's functions, instead of a textual query.
+    query = f"""SELECT
+                    COUNT (*)
+                FROM hackatrain2020.reservations
+                WHERE uiccode = {uiccode} 
+                AND reserve_start < '{time_end}'
+                AND reserve_end > '{time_start}'
+            """
+    conn = engine.connect()
+    result = conn.execute(query).scalar()
+
+    out = {
+        'uiccode': uiccode,
+        'timestamp': datetime.utcnow(),
+        'time_start': time_start,
+        'time_end': time_end,
+        'occupied_spots': result,
+    }
+    print
+    return out
 
 
 @app.get("/ns_departures/", response_model=List[Journey])
