@@ -6,10 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import urllib
-
+import json
+import pandas as pd
+import requests
+from typing import Any
 from datetime import datetime
-
-#DATABASE_URL = "sqlite:///./test.db"
 
 host_server = os.environ.get('host_server', 'localhost')
 db_server_port = urllib.parse.quote_plus(str(os.environ.get('db_server_port', '5432')))
@@ -45,7 +46,6 @@ reservations = sqlalchemy.Table(
 )
 
 engine = sqlalchemy.create_engine(
-    #DATABASE_URL, connect_args={"check_same_thread": False}
     DATABASE_URL, pool_size=3, max_overflow=0
 )
 metadata.create_all(engine)
@@ -75,6 +75,15 @@ class Station(BaseModel):
     lon: float
     bike_capacity: int
     stnname: str
+
+
+class Journey(BaseModel):
+    direction: str
+    name: str
+    plannedDateTime: datetime
+    trainCategory: str
+    departureStatus: str
+    plannedTrack: Any
 
 
 app = FastAPI(title="REST API using FastAPI PostgreSQL Async EndPoints")
@@ -158,3 +167,39 @@ async def read_user_reservations(user: str, skip: int = 0, take: int = 20):
 async def read_stations(skip: int = 0, take: int = 20):
     query = stations.select().offset(skip).limit(take)
     return await database.fetch_all(query)
+
+
+@app.get("/ns_departures/", response_model=List[Journey])
+def ns_departures(date_time: datetime = datetime(2020, 10, 1, 1, 32), uic_code: int = 8400530, max_journeys: int = 5):
+    headers = {
+        # Request headers
+        'Ocp-Apim-Subscription-Key': os.environ.get('ns_api', '<NS_API_KEY>')
+    }
+
+    params = urllib.parse.urlencode({
+        'uicCode': uic_code,
+        'dateTime': date_time,
+        'lang': 'nl',
+        'maxJourneys': max_journeys,
+    })
+
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(pool_connections=32, pool_maxsize=32)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    url = f"https://gateway.apiportal.ns.nl/reisinformatie-api/api/v2/departures?{params}"
+    response = session.get(url=url, headers=headers)
+    content = json.loads(response.text)
+
+    df = pd.DataFrame(content['payload']['departures'])
+    df = df[['direction', 'name', 'plannedDateTime', 'trainCategory', 'departureStatus', 'plannedTrack']]
+    # HOTFIX: Planned track sometimes is NULL
+    df['plannedTrack'] = df['plannedTrack'].astype(str)
+    df['plannedTrack'] = df['plannedTrack'].fillna('')
+    # HOTFIX: Remove timezon to timestamp. Only UTC
+    df['plannedDateTime'] = df['plannedDateTime'].str.split('+', expand=True)[0]
+    df['plannedDateTime'] = pd.to_datetime(df['plannedDateTime'])
+
+    out = df.to_dict(orient='records')
+    return out
