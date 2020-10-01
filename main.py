@@ -40,7 +40,7 @@ reservations = sqlalchemy.Table(
     sqlalchemy.Column("reserve_id", sqlalchemy.BigInteger, primary_key=True),
     sqlalchemy.Column("user", sqlalchemy.String),
     sqlalchemy.Column("timestamp", sqlalchemy.DateTime),
-    sqlalchemy.Column("stnname", sqlalchemy.String),
+    sqlalchemy.Column("uiccode", sqlalchemy.Integer),
     sqlalchemy.Column("reserve_start", sqlalchemy.DateTime),
     sqlalchemy.Column("reserve_end", sqlalchemy.DateTime),
 )
@@ -55,7 +55,7 @@ class Reservation(BaseModel):
     reserve_id: int
     user: str
     timestamp: datetime
-    stnname: str
+    uiccode: int
     reserve_start: datetime
     reserve_end: datetime
 
@@ -63,7 +63,7 @@ class Reservation(BaseModel):
 class ReservationIn(BaseModel):
     timestamp: datetime
     user: str
-    stnname: str
+    uiccode: int
     reserve_start: datetime
     reserve_end: datetime
 
@@ -114,7 +114,7 @@ async def create_reservation(reservation: ReservationIn):
     reservation.reserve_end = reservation.reserve_end.replace(tzinfo=None)
     query = reservations.insert().values(timestamp=reservation.timestamp,
                                          user=reservation.user,
-                                         stnname=reservation.stnname,
+                                         uiccode=reservation.uiccode,
                                          reserve_start=reservation.reserve_start,
                                          reserve_end=reservation.reserve_end,
                                          )
@@ -130,7 +130,7 @@ async def update_reservation(reservation_id: int, payload: ReservationIn):
     payload.reserve_end = payload.reserve_end.replace(tzinfo=None)
     query = reservations.update().where(reservations.c.reserve_id == reservation_id).values(timestamp=payload.timestamp,
                                                                                             user=payload.user,
-                                                                                            stnname=payload.stnname,
+                                                                                            uiccode=payload.uiccode,
                                                                                             reserve_start=payload.reserve_start,
                                                                                             reserve_end=payload.reserve_end,
                                                                                             )
